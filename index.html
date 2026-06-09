@@ -147,6 +147,9 @@
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input type="text" id="search-input" placeholder="Firma adı veya kod ile ara…" oninput="renderTable()">
   </div>
+  <select id="filter-yil" onchange="onYearChange()">
+    <option value="">Tüm Yıllar</option>
+  </select>
   <select id="filter-durum" onchange="renderTable()">
     <option value="">Tüm Durumlar</option>
     <option value="odendi">Ödendi</option>
@@ -487,6 +490,29 @@ const DC = {odendi:'durum-odendi',bekliyor:'durum-bekliyor',kismi:'durum-kismi',
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── RENDER ──────────────────────────────────────────────────────────────
+function yearOf(r){ return (r.tarih || '').slice(0,4); }
+
+let _yearSig = null;
+function populateYearFilter(){
+  const sel = document.getElementById('filter-yil');
+  if (!sel) return;
+  // Kayıtlardaki yıllar + 2025/2026 + içinde bulunulan yıl
+  const set = new Set(['2025','2026', String(new Date().getFullYear())]);
+  records.forEach(r => { const y = yearOf(r); if (/^\d{4}$/.test(y)) set.add(y); });
+  const years = [...set].sort((a,b)=> b.localeCompare(a)); // yeni yıl üstte
+  const sig = years.join(',');
+  if (sig === _yearSig) return;           // değişmediyse yeniden kurma
+  _yearSig = sig;
+  const cur = sel.value;                  // mevcut seçimi koru
+  sel.innerHTML = '<option value="">Tüm Yıllar</option>' +
+    years.map(y => `<option value="${y}">${y}</option>`).join('');
+  sel.value = (cur && years.includes(cur)) ? cur : (localStorage.getItem('cari_bakiye_yil') || '');
+}
+function onYearChange(){
+  localStorage.setItem('cari_bakiye_yil', document.getElementById('filter-yil').value);
+  renderTable();
+}
+
 function setSort(key){
   if (sortState.key !== key){ sortState.key = key; sortState.dir = 'desc'; }   // yeni sütun → büyükten küçüğe
   else if (sortState.dir === 'desc'){ sortState.dir = 'asc'; }                  // küçükten büyüğe
@@ -495,10 +521,13 @@ function setSort(key){
   renderTable();
 }
 function renderTable() {
+  populateYearFilter();
   const q   = document.getElementById('search-input').value.toLowerCase().trim();
   const fd  = document.getElementById('filter-durum').value;
   const fba = document.getElementById('filter-ba').value;
+  const fy  = document.getElementById('filter-yil').value;
   const filtered = records.filter(r => {
+    if (fy && yearOf(r) !== fy) return false;
     if (q && !r.isim.toLowerCase().includes(q) && !(r.kod||'').toLowerCase().includes(q)) return false;
     if (fd && r.durum !== fd) return false;
     if (fba && r.ba !== fba) return false;
@@ -554,8 +583,10 @@ function renderTable() {
 }
 
 function renderStats() {
+  const fy = document.getElementById('filter-yil') ? document.getElementById('filter-yil').value : '';
+  const scope = records.filter(r => !fy || yearOf(r) === fy);  // seçili yıla göre toplamlar
   let borc=0,alacak=0,odendi=0,bekleyen=0,odenenTL=0,kalanTL=0;
-  records.forEach(r=>{
+  scope.forEach(r=>{
     const v=r.bakiye||0;
     const od=r.odenen||0;
     if(r.para==='TL'){
@@ -565,7 +596,7 @@ function renderStats() {
     if(r.durum==='odendi')odendi++;
     else if(r.durum==='bekliyor'||r.durum==='acik')bekleyen++;
   });
-  document.getElementById('stat-toplam').textContent=records.length;
+  document.getElementById('stat-toplam').textContent=scope.length;
   document.getElementById('stat-borc').textContent=fmtMoney(borc);
   document.getElementById('stat-alacak').textContent=fmtMoney(alacak);
   const net=borc-alacak;
@@ -585,7 +616,9 @@ function openAddModal(){
   ['f-kod','f-isim','f-bakiye','f-odenen','f-aciklama'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-para').value='TL';
   document.getElementById('f-ba').value='B';
-  document.getElementById('f-tarih').value=todayStr();
+  // Bir yıl seçiliyse ve içinde bulunulan yıldan farklıysa, tarihi o yıla göre öner
+  const fy = document.getElementById('filter-yil').value;
+  document.getElementById('f-tarih').value = (fy && fy !== String(new Date().getFullYear())) ? `${fy}-01-01` : todayStr();
   document.getElementById('f-durum').value='acik';
   updateKalanPreview(false);
   document.getElementById('add-modal').classList.add('open');
