@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cari Bakiye Takip — Orimak Makina</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0f1117; --surface:#181c27; --surface2:#1f2435; --border:#2a3045;
+    --accent:#3b82f6; --green:#22c55e; --red:#ef4444; --yellow:#f59e0b;
+    --text:#e8ecf4; --muted:#7a8499; --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;padding:24px;}
+  .header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+  .header-left h1{font-size:22px;font-weight:700;letter-spacing:-0.4px;}
+  .header-left span{font-size:12px;color:var(--muted);font-family:var(--mono);display:block;margin-top:4px;}
+  .header-actions{display:flex;gap:10px;align-items:center;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .stat-card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+  .stat-card .value{font-family:var(--mono);font-size:17px;font-weight:500;}
+  .value.pos{color:var(--red);} .value.neg{color:var(--green);} .value.neutral{color:var(--text);}
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .search-wrap{position:relative;flex:1;min-width:200px;}
+  .search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px 9px 36px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;transition:border-color .15s;}
+  .search-wrap input:focus{border-color:var(--accent);}
+  .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);}
+  select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;cursor:pointer;}
+  .btn{padding:9px 16px;border-radius:8px;border:none;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;}
+  .btn:hover{opacity:.85;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-ghost{background:var(--surface);border:1px solid var(--border);color:var(--text);}
+  .btn-danger{background:#3b1a1a;border:1px solid #5c2626;color:var(--red);}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{background:var(--surface2);padding:11px 14px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+  th.th-sort{cursor:pointer;user-select:none;transition:color .12s;}
+  th.th-sort:hover{color:var(--text);}
+  .sort-ind{font-size:10px;color:var(--accent);margin-left:2px;}
+  tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+  tbody tr:last-child{border-bottom:none;}
+  tbody tr:hover{background:var(--surface2);}
+  td{padding:12px 14px;font-size:13px;vertical-align:top;}
+  .cari-kod{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .cari-isim{font-weight:500;font-size:13px;line-height:1.4;}
+  .bakiye-val{font-family:var(--mono);font-size:13px;font-weight:500;white-space:nowrap;}
+  .bakiye-val.borc{color:var(--red);} .bakiye-val.alacak{color:var(--green);} .bakiye-val.sifir{color:var(--muted);}
+  .odenen-val{color:#4ade80;} .kalan-pos{color:var(--yellow);} .kalan-zero{color:var(--muted);}
+  .tarih-val{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .aciklama-cell{max-width:220px;font-size:12px;color:#adb5bd;line-height:1.5;cursor:pointer;}
+  .aciklama-cell.empty{color:var(--muted);font-style:italic;}
+  .durum-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+  .durum-odendi{background:#14532d33;color:#4ade80;border:1px solid #14532d;}
+  .durum-bekliyor{background:#78350f33;color:#fbbf24;border:1px solid #78350f;}
+  .durum-sorunlu{background:#7f1d1d33;color:#f87171;border:1px solid #7f1d1d;}
+  .durum-kismi{background:#1e3a5f33;color:#60a5fa;border:1px solid #1e3a5f;}
+  .durum-acik{background:#1f1f2e33;color:var(--muted);border:1px solid var(--border);}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;align-items:center;justify-content:center;}
+  .modal-bg.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+  .modal h2{font-size:16px;font-weight:700;margin-bottom:20px;}
+  .form-row{margin-bottom:14px;}
+  .form-row label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+  .form-row input,.form-row textarea,.form-row select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;transition:border-color .15s;}
+  .form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--accent);}
+  .form-row textarea{resize:vertical;min-height:72px;}
+  .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+  .pdf-drop{border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:16px;}
+  .pdf-drop:hover,.pdf-drop.dragover{border-color:var(--accent);background:#1a2540;}
+  .pdf-drop svg{margin-bottom:10px;color:var(--muted);}
+  .pdf-drop p{font-size:13px;color:var(--muted);}
+  .pdf-drop p strong{color:var(--text);}
+  .import-preview{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;font-size:12px;}
+  .import-preview-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);gap:12px;}
+  .import-preview-row:last-child{border-bottom:none;}
+  .import-preview-row .ipr-isim{flex:1;color:var(--text);}
+  .import-preview-row .ipr-bakiye{font-family:var(--mono);font-size:11px;}
+  .import-preview-row input[type="checkbox"]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+  .empty-state svg{margin-bottom:14px;}
+  .empty-state p{font-size:14px;}
+  .parse-log{font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:100px;overflow-y:auto;color:var(--muted);margin-bottom:12px;}
+  .header-left{display:flex;align-items:center;gap:16px;}
+  .brand-logo{height:40px;width:auto;display:block;background:#fff;border-radius:9px;padding:7px 11px;flex-shrink:0;}
+  .save-badge{font-family:var(--mono);font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;white-space:nowrap;}
+  .save-badge.saved{background:#14532d33;color:#4ade80;border:1px solid #14532d;}
+  .save-badge.unsaved{background:#78350f33;color:#fbbf24;border:1px solid #78350f;}
+  .save-badge.syncing{background:#1e3a5f33;color:#60a5fa;border:1px solid #1e3a5f;}
+  .save-badge.offline{background:#7f1d1d33;color:#f87171;border:1px solid #7f1d1d;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 20px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200;display:flex;align-items:center;gap:8px;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.ok{border-color:#14532d;} .toast.ok svg{color:var(--green);}
+  @media(max-width:768px){body{padding:12px;}.header{flex-direction:column;align-items:flex-start;gap:12px;}.header-actions{flex-wrap:wrap;}td:nth-child(6),th:nth-child(6){display:none;}}
+</style>
+<!-- Firebase (compat — mevcut global fonksiyon yapısıyla uyumlu) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <img src="data:image/png;base64,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vqypalghGH4xHZvMW8xbmSORkZHx4osv8tofycYKBo8MJow6bobpm2EQut3ujz766I477iDfVT5EEYIE0gUZqBO6FFJVMITPCaxYZ0XQMWWj980339y4cWOEzNP0pmRkZBQXFwdlwhGqPnbkzp8/v6ioiOdeoM+TV7r33nvvq6++YjBEMtAQzO0Q2CQexCNHjvTt29en8XSdn829kZiYmLU2q0+fPkwM6zK+p2ma2+1etmzZmDFjglLNs5QzaXHACOQ4up9NUlX2WLBZK4gMKQAJQSIAyiqiWtMwA4DX67355pu/+eYbl8ulaZrNK83jGhcX16ZNm+bNm9evX9/j8eTl5R07diw/P58nnKkfeNliTE6aNCk1NXXkyJG6rquqEipqZ754cnJyYmKi2dUmzKSURUVFJSUlbJ6ZaOSWu93u1atXL1u2bNSoUbquqwrTWqlKVABUiQYSCU0hIdEfcWUGTxhiRlZxs/vvv3/Hjh3x8fE1ekeYJb311lvvvvuuf8UJHompcUSEEHl5eQsXLrQqT9OyNTMo+NPnnntuzZo1kbGb4NizdYCmaS6X6/vvv7/hhhtyc3PNd0FERVVZ461Zs+baa6/lVw7zxKixx6vp22+/PWrUKH9Bh3Na9ouq9sT74+oha5SZf0I3SANVAFAoCnuPyduECRM2b97sdrttwOPeuOKKK8aMGdOvX7+2bdtW+fSJfvnlly+++OKtt5atWLGcbSSzo0xA3nvvvWlpae3bt5dSCqGEUjU8qI899tj999/v9XpZzZqdL6UsLCzcuXPnwoULN2zYYPV48XQUQsydO/e2225TFGFuPBYIIJAQ3IaukYuEERUHIiJ2Sz766KNz584Nw6z4YkVR8vLyJk2aFMZEjMQ1wreaPn16fn6+yfSChra5z9etW/f111+npaVF4vAM5tWrNhyGYbhcrtzc3P79+//444/WtZi1a0JCwurVq6+99trwGi9qzklEfMdly5bdfvvtZgAkCgJXxxikMDEk6/IsJHmFogvVTYC6HmFL2cz75JNP5s2bpyiKpmnmMLDPSggxZcqUr776avz48RdffDFPeiaciJicnDxw4MB33vnvli1brrjiCuautvW7pKRk4sSJgVkjoaam2+2Oi4uLjY2tV69ebGxsbGxsXFxcQkJC69athw4dun79+meeeYYpmdU6kFLu2vX1gQMH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" class="brand-logo" alt="ORİMAK">
+    <div class="brand-text">
+      <h1>Cari Bakiye Takip</h1>
+      <span>Orimak Makina San.Tic.Ltd.Şti.</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="save-badge saved" id="save-badge">● Yedeklendi</span>
+    <button class="btn btn-ghost" onclick="exportJSON()" title="Tüm kayıtları JSON dosyası olarak indir">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      JSON Kaydet
+    </button>
+    <button class="btn btn-ghost" onclick="document.getElementById('json-file-input').click()" title="JSON yedeğini aç">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/><polyline points="7 9 12 4 17 9"/><line x1="12" y1="4" x2="12" y2="16"/></svg>
+      JSON Aç
+    </button>
+    <input type="file" id="json-file-input" accept=".json,application/json" style="display:none" onchange="handleJsonFile(this.files[0])">
+    <button class="btn btn-ghost" onclick="openPdfModal()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      PDF İçe Aktar
+    </button>
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Yeni Kayıt
+    </button>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat-card"><div class="label">Toplam Kayıt</div><div class="value neutral" id="stat-toplam">0</div></div>
+  <div class="stat-card"><div class="label">Borç Bakiye (TL)</div><div class="value pos" id="stat-borc">0,00</div></div>
+  <div class="stat-card"><div class="label">Alacak Bakiye (TL)</div><div class="value neg" id="stat-alacak">0,00</div></div>
+  <div class="stat-card"><div class="label">Net (TL)</div><div class="value neutral" id="stat-net">0,00</div></div>
+  <div class="stat-card"><div class="label">Tahsil Edilen (TL)</div><div class="value neg" id="stat-odenen-tl">0,00</div></div>
+  <div class="stat-card"><div class="label">Kalan Borç (TL)</div><div class="value pos" id="stat-kalan-tl">0,00</div></div>
+  <div class="stat-card"><div class="label">Ödendi</div><div class="value neutral" id="stat-odendi">0</div></div>
+  <div class="stat-card"><div class="label">Bekleyen</div><div class="value pos" id="stat-bekleyen">0</div></div>
+</div>
+
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search-input" placeholder="Firma adı veya kod ile ara…" oninput="renderTable()">
+  </div>
+  <select id="filter-durum" onchange="renderTable()">
+    <option value="">Tüm Durumlar</option>
+    <option value="odendi">Ödendi</option>
+    <option value="bekliyor">Bekliyor</option>
+    <option value="kismi">Kısmi Ödeme</option>
+    <option value="sorunlu">Sorunlu</option>
+    <option value="acik">Açık</option>
+  </select>
+  <select id="filter-ba" onchange="renderTable()">
+    <option value="">Borç & Alacak</option>
+    <option value="B">Borçlu (B)</option>
+    <option value="A">Alacaklı (A)</option>
+    <option value="K">Sıfır (K)</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <table id="main-table">
+    <thead><tr>
+      <th>Kod</th><th>Firma Adı</th>
+      <th class="th-sort" onclick="setSort('bakiye')">Bakiye <span class="sort-ind" id="si-bakiye"></span></th>
+      <th>Ödenen</th>
+      <th class="th-sort" onclick="setSort('kalan')">Kalan <span class="sort-ind" id="si-kalan"></span></th>
+      <th class="th-sort" onclick="setSort('tarih')">Tarih <span class="sort-ind" id="si-tarih"></span></th>
+      <th>Açıklama / Not</th><th>Durum</th><th></th>
+    </tr></thead>
+    <tbody id="table-body"></tbody>
+  </table>
+  <div id="empty-state" class="empty-state" style="display:none">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <p>Kayıt bulunamadı. PDF içe aktar veya yeni kayıt ekle.</p>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-bg" id="add-modal">
+  <div class="modal">
+    <h2 id="modal-title">Yeni Kayıt Ekle</h2>
+    <input type="hidden" id="edit-id">
+    <div class="form-row"><label>Cari Kod</label><input type="text" id="f-kod" placeholder="120-0001"></div>
+    <div class="form-row"><label>Firma Adı *</label><input type="text" id="f-isim" placeholder="Firma adını girin"></div>
+    <div class="form-row"><label>Bakiye</label><input type="text" id="f-bakiye" placeholder="1.234.567,89" oninput="updateKalanPreview(true)"></div>
+    <div class="form-row"><label>Ödenen Tutar</label><input type="text" id="f-odenen" placeholder="0,00" oninput="updateKalanPreview(true)"></div>
+    <div class="form-row" style="margin-top:-6px;margin-bottom:16px"><div style="font-size:12px;color:var(--muted)">Kalan: <span id="kalan-preview" style="font-family:var(--mono);color:var(--yellow);font-weight:600">0,00</span></div></div>
+    <div class="form-row"><label>Para Birimi</label>
+      <select id="f-para"><option value="TL">TL</option><option value="USD">USD</option><option value="EUR">EUR</option></select>
+    </div>
+    <div class="form-row"><label>B/A</label>
+      <select id="f-ba"><option value="B">B — Borçlu</option><option value="A">A — Alacaklı</option><option value="K">K — Sıfır</option></select>
+    </div>
+    <div class="form-row"><label>Tarih</label><input type="date" id="f-tarih"></div>
+    <div class="form-row"><label>Açıklama / Firmanın Söyledikleri</label>
+      <textarea id="f-aciklama" placeholder="Görüşme notu, söz verilen tarih vb."></textarea>
+    </div>
+    <div class="form-row"><label>Ödeme Durumu</label>
+      <select id="f-durum">
+        <option value="acik">Açık</option><option value="bekliyor">Bekliyor</option>
+        <option value="kismi">Kısmi Ödeme</option><option value="odendi">Ödendi</option><option value="sorunlu">Sorunlu</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">İptal</button>
+      <button class="btn btn-primary" onclick="saveRecord()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF IMPORT MODAL -->
+<div class="modal-bg" id="pdf-modal">
+  <div class="modal" style="width:560px">
+    <h2>PDF İçe Aktar</h2>
+    <div class="pdf-drop" id="pdf-drop" onclick="document.getElementById('pdf-file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handlePdfDrop(event)">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      <p><strong>PDF dosyasını buraya sürükle</strong> veya tıkla</p>
+      <p style="font-size:11px;margin-top:6px">Cari Bakiye Listesi formatındaki PDF'ler desteklenir</p>
+    </div>
+    <input type="file" id="pdf-file-input" accept=".pdf" style="display:none" onchange="handlePdfFile(this.files[0])">
+    <div id="pdf-parse-status" style="font-size:12px;color:var(--muted);margin-bottom:8px;display:none"></div>
+    <div id="parse-log-wrap" style="display:none"><div class="parse-log" id="parse-log"></div></div>
+    <div id="import-preview-wrap" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--muted)" id="import-count"></span>
+        <label style="font-size:12px;display:flex;gap:6px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="select-all-import" onchange="toggleAllImport(this.checked)" checked> Tümünü Seç
+        </label>
+      </div>
+      <div class="import-preview" id="import-preview"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePdfModal()">İptal</button>
+      <button class="btn btn-primary" id="import-btn" onclick="importSelected()" style="display:none">Seçilenleri Aktar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-bg" id="delete-modal">
+  <div class="modal" style="width:360px">
+    <h2>Kaydı Sil</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Bu kaydı silmek istediğinizden emin misiniz?</p>
+    <input type="hidden" id="delete-id">
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('delete-modal').classList.remove('open')">İptal</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Sil</button>
+    </div>
+  </div>
+</div>
+
+<!-- JSON IMPORT MODAL -->
+<div class="modal-bg" id="json-modal">
+  <div class="modal" style="width:420px">
+    <h2>JSON Yedeği Aç</h2>
+    <p style="font-size:13px;color:var(--text);margin-bottom:6px" id="json-info">—</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:22px">Şu an ekranda <strong id="json-current-count">0</strong> kayıt var. Açtığınız yedek için ne yapmak istersiniz?</p>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-ghost" onclick="document.getElementById('json-modal').classList.remove('open')">İptal</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="applyImportJSON('merge')">Birleştir</button>
+        <button class="btn btn-primary" onclick="applyImportJSON('replace')">Üzerine Yaz</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span id="toast-text"></span></div>
+
+<script>
+// ── FIREBASE AYARLARI ────────────────────────────────────────────────────
+// Firebase konsolundan (Project settings → Your apps → Web app) aldığın
+// yapılandırmayı buraya yapıştır. Doldurulmazsa uygulama "yerel mod"da çalışır.
+const firebaseConfig = {
+  apiKey: "BURAYA_API_KEY",
+  authDomain: "BURAYA.firebaseapp.com",
+  projectId: "BURAYA_PROJECT_ID",
+  storageBucket: "BURAYA.appspot.com",
+  messagingSenderId: "BURAYA_SENDER_ID",
+  appId: "BURAYA_APP_ID"
+};
+const COLLECTION = 'cari_bakiye';   // Firestore koleksiyon adı
+
+// ── STATE ──────────────────────────────────────────────────────────────
+let records = JSON.parse(localStorage.getItem('cari_bakiye_v3') || '[]'); // anlık gösterim için yerel önbellek
+let parsedImport = [];
+let pendingImport = null;     // JSON açarken bekleyen kayıtlar
+let sortState = { key: null, dir: 'desc' };  // sıralama: bakiye / kalan / tarih
+let db = null;                // Firestore örneği (yerel modda null kalır)
+let firstSnap = true;         // ilk snapshot'ta migrasyon kontrolü için
+
+function save() { localStorage.setItem('cari_bakiye_v3', JSON.stringify(records)); } // yerel önbellek
+function uid()  { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+// ── BAĞLANTI DURUMU ROZETİ ───────────────────────────────────────────────
+function setSyncStatus(state, text){
+  const b = document.getElementById('save-badge'); if(!b) return;
+  const cls = state==='ok' ? 'saved' : state==='sync' ? 'syncing' : 'offline';
+  b.className = 'save-badge ' + cls;
+  b.textContent = '● ' + text;
+}
+function markDirty(){}  // Firebase ile otomatik senkron → kullanılmıyor (uyumluluk için)
+function markSaved(){}
+
+function toast(msg, ok=true){
+  const t = document.getElementById('toast');
+  document.getElementById('toast-text').textContent = msg;
+  t.className = 'toast show' + (ok ? ' ok' : '');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(()=>{ t.className = 'toast' + (ok?' ok':''); }, 2600);
+}
+
+// ── FIRESTORE BAĞLANTISI ──────────────────────────────────────────────────
+function initFirebase(){
+  const notSet = !firebaseConfig.apiKey || /BURAYA|YOUR_/.test(firebaseConfig.apiKey);
+  if (typeof firebase === 'undefined'){ setSyncStatus('offline','Firebase yüklenemedi · yerel mod'); return; }
+  if (notSet){ setSyncStatus('offline','Yerel mod · Firebase ayarlı değil'); return; }
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    subscribe();
+  } catch(e){
+    setSyncStatus('offline','Firebase hatası');
+    console.error('Firebase init hatası:', e);
+  }
+}
+
+function subscribe(){
+  setSyncStatus('sync','Bağlanıyor…');
+  db.collection(COLLECTION).onSnapshot(snap => {
+    // İlk açılışta bulut boş ama yerelde kayıt varsa → tek seferlik buluta taşı
+    if (firstSnap && snap.empty && records.length > 0){
+      firstSnap = false;
+      const seed = records.map(r => ({...r, ts: r.ts || Date.now()}));
+      setSyncStatus('sync','Yerel kayıtlar buluta taşınıyor…');
+      fsBatchSet(seed)
+        .then(()=> toast(seed.length + ' yerel kayıt buluta taşındı.'))
+        .catch(e=>{ setSyncStatus('offline','Aktarım hatası'); toast('Aktarım hatası: '+e.message,false); });
+      return; // sonraki snapshot dolu gelecek
+    }
+    firstSnap = false;
+    records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    records.sort((a,b)=> (b.ts||0) - (a.ts||0));   // en yeni üstte
+    save();
+    setSyncStatus('ok', 'Bağlı · ' + records.length + ' kayıt');
+    renderTable();
+  }, err => {
+    setSyncStatus('offline','Bağlantı/izin hatası');
+    console.error('onSnapshot hatası:', err);
+    toast('Firestore hatası: ' + err.message, false);
+  });
+}
+
+// Firestore yazma yardımcıları (yerel modda sessizce atlar)
+async function fsSet(rec){ if(!db) return; await db.collection(COLLECTION).doc(rec.id).set(rec); }
+async function fsDelete(id){ if(!db) return; await db.collection(COLLECTION).doc(id).delete(); }
+async function fsBatchSet(list){
+  if(!db || !list.length) return;
+  for(let i=0;i<list.length;i+=400){
+    const batch = db.batch();
+    list.slice(i,i+400).forEach(r => batch.set(db.collection(COLLECTION).doc(r.id), r));
+    await batch.commit();
+  }
+}
+async function fsReplaceAll(newList){
+  if(!db) return;
+  const snap = await db.collection(COLLECTION).get();
+  for(let i=0;i<snap.docs.length;i+=400){
+    const batch = db.batch();
+    snap.docs.slice(i,i+400).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await fsBatchSet(newList);
+}
+
+// ── JSON KAYDET (DIŞA AKTAR) ──────────────────────────────────────────────
+function exportJSON(){
+  if (!records.length){ toast('Kaydedilecek veri yok.', false); return; }
+  const payload = {
+    app: 'orimak-cari-bakiye',
+    version: 3,
+    exportedAt: new Date().toISOString(),
+    count: records.length,
+    records: records
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  const stamp = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+  const a = document.createElement('a');
+  a.href = url; a.download = `cari-bakiye_${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  markSaved();
+  toast(`${records.length} kayıt JSON olarak kaydedildi.`);
+}
+
+// ── JSON AÇ (İÇE AKTAR) ───────────────────────────────────────────────────
+function handleJsonFile(file){
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      let incoming = Array.isArray(data) ? data : data.records;
+      if (!Array.isArray(incoming)) throw new Error('Beklenen kayıt listesi bulunamadı.');
+      // alanları normalize et
+      pendingImport = incoming.map(r => ({
+        id: r.id || uid(),
+        kod: r.kod || '',
+        isim: r.isim || '',
+        bakiye: typeof r.bakiye === 'number' ? r.bakiye : parseMoney(r.bakiye),
+        odenen: typeof r.odenen === 'number' ? r.odenen : parseMoney(r.odenen),
+        para: r.para || 'TL',
+        ba: r.ba || 'B',
+        tarih: r.tarih || todayStr(),
+        aciklama: r.aciklama || '',
+        durum: r.durum || 'acik'
+      }));
+      const info = document.getElementById('json-info');
+      const tarih = data.exportedAt ? new Date(data.exportedAt).toLocaleString('tr-TR') : 'bilinmiyor';
+      info.textContent = `Dosyada ${pendingImport.length} kayıt bulundu (Yedek tarihi: ${tarih}).`;
+      document.getElementById('json-current-count').textContent = records.length;
+      document.getElementById('json-modal').classList.add('open');
+    } catch (err){
+      toast('JSON okunamadı: ' + err.message, false);
+    }
+    document.getElementById('json-file-input').value = '';
+  };
+  reader.readAsText(file);
+}
+
+function applyImportJSON(mode){
+  if (!pendingImport){ document.getElementById('json-modal').classList.remove('open'); return; }
+  if (mode === 'replace'){
+    records = pendingImport.map(r => ({...r, ts: r.ts || Date.now()}));
+    save();
+    toast(`${records.length} kayıt yüklendi (üzerine yazıldı).`);
+    fsReplaceAll(records).catch(e => toast('Buluta yazılamadı: ' + e.message, false));
+  } else {
+    // cari koda göre eşleşeni AYNI dokümana yaz (Firestore'da yetim doküman oluşmasın)
+    const byKod = new Map();
+    records.forEach(r => { if (r.kod) byKod.set(r.kod, r); });
+    const writeList = pendingImport.map(r => {
+      const m = r.kod ? byKod.get(r.kod) : null;
+      return {...r, id: m ? m.id : r.id, ts: r.ts || (m && m.ts) || Date.now()};
+    });
+    const map = new Map();
+    records.forEach(r => map.set(r.id, r));
+    writeList.forEach(r => map.set(r.id, r));
+    records = [...map.values()].sort((a,b)=> (b.ts||0) - (a.ts||0));
+    save();
+    toast(`Birleştirildi. Toplam ${records.length} kayıt.`);
+    fsBatchSet(writeList).catch(e => toast('Buluta yazılamadı: ' + e.message, false));
+  }
+  pendingImport = null;
+  document.getElementById('json-modal').classList.remove('open');
+  renderTable();
+}
+
+function parseMoney(s) {
+  if (!s) return 0;
+  return parseFloat(String(s).replace(/\./g,'').replace(',','.')) || 0;
+}
+function fmtMoney(v, para='TL') {
+  return Math.abs(v).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ' + para;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,g] = d.split('-'); return `${g}.${m}.${y}`;
+}
+
+const DL = {odendi:'Ödendi',bekliyor:'Bekliyor',kismi:'Kısmi Ödeme',sorunlu:'Sorunlu',acik:'Açık'};
+const DC = {odendi:'durum-odendi',bekliyor:'durum-bekliyor',kismi:'durum-kismi',sorunlu:'durum-sorunlu',acik:'durum-acik'};
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── RENDER ──────────────────────────────────────────────────────────────
+function setSort(key){
+  if (sortState.key !== key){ sortState.key = key; sortState.dir = 'desc'; }   // yeni sütun → büyükten küçüğe
+  else if (sortState.dir === 'desc'){ sortState.dir = 'asc'; }                  // küçükten büyüğe
+  else { sortState.key = null; sortState.dir = 'desc'; }                        // varsayılana dön
+  renderTable();
+}
+function renderTable() {
+  const q   = document.getElementById('search-input').value.toLowerCase().trim();
+  const fd  = document.getElementById('filter-durum').value;
+  const fba = document.getElementById('filter-ba').value;
+  const filtered = records.filter(r => {
+    if (q && !r.isim.toLowerCase().includes(q) && !(r.kod||'').toLowerCase().includes(q)) return false;
+    if (fd && r.durum !== fd) return false;
+    if (fba && r.ba !== fba) return false;
+    return true;
+  });
+  // Sıralama (seçili sütuna göre); seçili değilse varsayılan sıra (en yeni üstte)
+  if (sortState.key){
+    const dir = sortState.dir === 'asc' ? 1 : -1;
+    const valOf = r => sortState.key === 'tarih' ? (r.tarih || '')
+      : sortState.key === 'kalan' ? Math.max(0,(r.bakiye||0)-(r.odenen||0))
+      : (r.bakiye||0);
+    filtered.sort((a,b)=>{
+      const va = valOf(a), vb = valOf(b);
+      if (va < vb) return -1*dir;
+      if (va > vb) return  1*dir;
+      return 0;
+    });
+  }
+  // Başlık oklarını güncelle
+  ['bakiye','kalan','tarih'].forEach(k=>{
+    const el = document.getElementById('si-'+k);
+    if (el) el.textContent = sortState.key===k ? (sortState.dir==='asc'?'▲':'▼') : '';
+  });
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+  document.getElementById('empty-state').style.display = filtered.length ? 'none' : '';
+  filtered.forEach(r => {
+    const baCls = r.ba==='B'?'borc':r.ba==='A'?'alacak':'sifir';
+    const sign  = r.ba==='A'?'-':'';
+    const odenen = r.odenen||0;
+    const kalan  = Math.max(0,(r.bakiye||0)-odenen);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="cari-kod">${esc(r.kod||'—')}</span></td>
+      <td><span class="cari-isim">${esc(r.isim)}</span></td>
+      <td><span class="bakiye-val ${baCls}">${sign}${fmtMoney(r.bakiye||0,r.para)}</span></td>
+      <td><span class="bakiye-val odenen-val">${odenen>0?fmtMoney(odenen,r.para):'—'}</span></td>
+      <td><span class="bakiye-val ${kalan>0?'kalan-pos':'kalan-zero'}">${fmtMoney(kalan,r.para)}</span></td>
+      <td><span class="tarih-val">${fmtDate(r.tarih)}</span></td>
+      <td><span class="aciklama-cell ${r.aciklama?'':'empty'}" onclick="editAciklama('${r.id}')">${r.aciklama?esc(r.aciklama):'+ Not ekle'}</span></td>
+      <td>
+        <select class="durum-badge ${DC[r.durum]}" onchange="changeDurum('${r.id}',this.value)" style="border:none;cursor:pointer;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;">
+          ${Object.entries(DL).map(([k,v])=>`<option value="${k}" ${r.durum===k?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal('${r.id}')">Düzenle</button>
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${r.id}')">Sil</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  renderStats();
+}
+
+function renderStats() {
+  let borc=0,alacak=0,odendi=0,bekleyen=0,odenenTL=0,kalanTL=0;
+  records.forEach(r=>{
+    const v=r.bakiye||0;
+    const od=r.odenen||0;
+    if(r.para==='TL'){
+      if(r.ba==='B'){ borc+=v; odenenTL+=od; kalanTL+=Math.max(0,v-od); }
+      else if(r.ba==='A') alacak+=v;
+    }
+    if(r.durum==='odendi')odendi++;
+    else if(r.durum==='bekliyor'||r.durum==='acik')bekleyen++;
+  });
+  document.getElementById('stat-toplam').textContent=records.length;
+  document.getElementById('stat-borc').textContent=fmtMoney(borc);
+  document.getElementById('stat-alacak').textContent=fmtMoney(alacak);
+  const net=borc-alacak;
+  const el=document.getElementById('stat-net');
+  el.textContent=(net>=0?'':'-')+fmtMoney(Math.abs(net));
+  el.className='value '+(net>0?'pos':net<0?'neg':'neutral');
+  document.getElementById('stat-odenen-tl').textContent=fmtMoney(odenenTL);
+  document.getElementById('stat-kalan-tl').textContent=fmtMoney(kalanTL);
+  document.getElementById('stat-odendi').textContent=odendi;
+  document.getElementById('stat-bekleyen').textContent=bekleyen;
+}
+
+// ── ADD / EDIT ──────────────────────────────────────────────────────────
+function openAddModal(){
+  document.getElementById('modal-title').textContent='Yeni Kayıt Ekle';
+  document.getElementById('edit-id').value='';
+  ['f-kod','f-isim','f-bakiye','f-odenen','f-aciklama'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-para').value='TL';
+  document.getElementById('f-ba').value='B';
+  document.getElementById('f-tarih').value=todayStr();
+  document.getElementById('f-durum').value='acik';
+  updateKalanPreview(false);
+  document.getElementById('add-modal').classList.add('open');
+}
+function openEditModal(id){
+  const r=records.find(x=>x.id===id); if(!r)return;
+  document.getElementById('modal-title').textContent='Kaydı Düzenle';
+  document.getElementById('edit-id').value=r.id;
+  document.getElementById('f-kod').value=r.kod||'';
+  document.getElementById('f-isim').value=r.isim||'';
+  document.getElementById('f-bakiye').value=(r.bakiye||0).toLocaleString('tr-TR',{minimumFractionDigits:2});
+  document.getElementById('f-odenen').value=(r.odenen||0).toLocaleString('tr-TR',{minimumFractionDigits:2});
+  document.getElementById('f-para').value=r.para||'TL';
+  document.getElementById('f-ba').value=r.ba||'B';
+  document.getElementById('f-tarih').value=r.tarih||'';
+  document.getElementById('f-aciklama').value=r.aciklama||'';
+  document.getElementById('f-durum').value=r.durum||'acik';
+  updateKalanPreview(false);
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal(){ document.getElementById('add-modal').classList.remove('open'); }
+function updateKalanPreview(autoStatus){
+  const bak = parseMoney(document.getElementById('f-bakiye').value);
+  const od  = parseMoney(document.getElementById('f-odenen').value);
+  const kalan = Math.max(0, bak - od);
+  const el = document.getElementById('kalan-preview');
+  el.textContent = kalan.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  el.style.color = kalan>0 ? 'var(--yellow)' : 'var(--green)';
+  // Kullanıcı tutar yazdıkça durumu otomatik öner (sonradan elle değiştirilebilir)
+  if (autoStatus && bak > 0 && od > 0){
+    document.getElementById('f-durum').value = (od >= bak) ? 'odendi' : 'kismi';
+  }
+}
+function saveRecord(){
+  const isim=document.getElementById('f-isim').value.trim();
+  if(!isim){alert('Firma adı zorunludur.');return;}
+  const id=document.getElementById('edit-id').value;
+  let ts=Date.now();
+  if(id){ const ex=records.find(x=>x.id===id); if(ex&&ex.ts) ts=ex.ts; }  // düzenlemede sırayı koru
+  const obj={
+    id:id||uid(), kod:document.getElementById('f-kod').value.trim(), isim,
+    bakiye:parseMoney(document.getElementById('f-bakiye').value),
+    odenen:parseMoney(document.getElementById('f-odenen').value),
+    para:document.getElementById('f-para').value, ba:document.getElementById('f-ba').value,
+    tarih:document.getElementById('f-tarih').value,
+    aciklama:document.getElementById('f-aciklama').value.trim(),
+    durum:document.getElementById('f-durum').value,
+    ts
+  };
+  if(id){const i=records.findIndex(x=>x.id===id);if(i>-1)records[i]=obj;}
+  else records.unshift(obj);
+  save(); closeAddModal(); renderTable();
+  fsSet(obj).catch(e=>toast('Buluta yazılamadı: '+e.message,false));
+}
+function editAciklama(id){ openEditModal(id); setTimeout(()=>document.getElementById('f-aciklama').focus(),100); }
+function changeDurum(id,val){ const r=records.find(x=>x.id===id);if(r){r.durum=val;save();renderTable();fsSet(r).catch(e=>toast('Buluta yazılamadı: '+e.message,false));} }
+function openDeleteModal(id){ document.getElementById('delete-id').value=id; document.getElementById('delete-modal').classList.add('open'); }
+function confirmDelete(){
+  const id=document.getElementById('delete-id').value;
+  records=records.filter(x=>x.id!==id);
+  save(); document.getElementById('delete-modal').classList.remove('open'); renderTable();
+  fsDelete(id).catch(e=>toast('Silinemedi: '+e.message,false));
+}
+
+// ── PDF PARSE (koordinat bazlı) ─────────────────────────────────────────
+// PDF.js ile items (glyphs) koordinat bilgisi kullanılarak
+// firma adı (x < NAME_X_MAX) ile sayılar (x >= BAKIYE_X_MIN) ayrılır.
+// Bu yaklaşım, uzun firma adlarının sayılarla iç içe geçtiği garble sorununu çözer.
+
+const NAME_X_MAX  = 285; // firma adı bu x koordinatından küçük tokenlarda
+const BAKIYE_X_MIN = 460; // bakiye sütunu bu x koordinatından büyük
+
+async function loadPdfJs() {
+  if (window.pdfjsLib) return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=res; s.onerror=rej; document.head.appendChild(s);
+  });
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function parsePdf(arrayBuffer) {
+  await loadPdfJs();
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  const results = [];
+  const logs = [];
+  const codeRe = /^1[0-9]{2}-\d{4}$/;
+  const moneyRe = /[\d]{1,3}(?:\.[\d]{3})*,[\d]{2}/g;
+  const paraRe  = /\b(TL|USD|EUR)\b/;
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const vp   = page.getViewport({scale:1});
+    const content = await page.getTextContent();
+
+    // Build word list with x,y coordinates
+    // PDF.js items have transform [a,b,c,d,e,f] — e=x, f=y (from bottom)
+    // Convert y to top-based: yTop = pageHeight - f
+    const pageH = vp.height;
+    const wordMap = {}; // key = rounded y → [{x, text}]
+
+    for (const item of content.items) {
+      const text = item.str.trim();
+      if (!text) continue;
+      const x = item.transform[4];
+      const y = Math.round((pageH - item.transform[5]) / 4) * 4; // bucket by 4pt
+      if (!wordMap[y]) wordMap[y] = [];
+      wordMap[y].push({x, text});
+    }
+
+    // Process each line
+    for (const yKey of Object.keys(wordMap).sort((a,b)=>+a-+b)) {
+      const items = wordMap[yKey].sort((a,b)=>a.x-b.x);
+      if (!items.length || !codeRe.test(items[0].text)) continue;
+
+      const code = items[0].text;
+      const rest = items.slice(1);
+
+      // Name: tokens with x < NAME_X_MAX
+      const nameParts = rest.filter(w=>w.x < NAME_X_MAX).map(w=>w.text);
+      let isim = nameParts.join(' ').trim();
+
+      // B/A: last token
+      const lastToken = rest[rest.length-1]?.text;
+      if (!lastToken || !['B','A','K'].includes(lastToken)) continue;
+      const ba = lastToken;
+
+      // Currency: scan right tokens
+      let para = 'TL';
+      for (const w of rest) {
+        const pm = paraRe.exec(w.text);
+        if (pm) { para = pm[1]; break; }
+        // Also check embedded: "4.016.833,07TL"
+        if (/TL$/.test(w.text)) { para='TL'; break; }
+        if (/USD$/.test(w.text)){ para='USD'; break; }
+        if (/EUR$/.test(w.text)){ para='EUR'; break; }
+      }
+
+      // Bakiye: tokens with x >= BAKIYE_X_MIN (excluding BA token)
+      let bakiye = 0;
+      if (ba !== 'K') {
+        const bakiyeTokens = rest.filter(w=>w.x >= BAKIYE_X_MIN && !['B','A','K','TL','USD','EUR'].includes(w.text));
+        // Concatenate, strip non-numeric except dots/commas
+        const chunk = bakiyeTokens.map(w=>w.text).join('');
+        const stripped = chunk.replace(/[^\d.,]/g,'').replace(/\.{2,}/g,'.').replace(/^\.+/,'');
+        const matches = stripped.match(moneyRe);
+        if (matches && matches.length > 0) {
+          // Last match = bakiye (rightmost column)
+          const raw = matches[matches.length-1];
+          bakiye = Math.abs(parseFloat(raw.replace(/\./g,'').replace(',','.')));
+        }
+        if (bakiye === 0) {
+          logs.push(`⚠ Bakiye bulunamadı: ${code} ${isim.slice(0,30)}`);
+        }
+      }
+
+      results.push({id:uid(), kod:code, isim, bakiye, odenen:0, para, ba, tarih:todayStr(), aciklama:'', durum:'acik', ts:Date.now()});
+    }
+  }
+  return {results, logs};
+}
+
+// ── PDF UI ──────────────────────────────────────────────────────────────
+function openPdfModal(){
+  parsedImport=[];
+  document.getElementById('import-preview').innerHTML='';
+  document.getElementById('import-preview-wrap').style.display='none';
+  document.getElementById('pdf-parse-status').style.display='none';
+  document.getElementById('parse-log-wrap').style.display='none';
+  document.getElementById('import-btn').style.display='none';
+  document.getElementById('pdf-file-input').value='';
+  document.getElementById('pdf-modal').classList.add('open');
+}
+function closePdfModal(){ document.getElementById('pdf-modal').classList.remove('open'); }
+function handlePdfDrop(e){
+  e.preventDefault(); document.getElementById('pdf-drop').classList.remove('dragover');
+  const f=e.dataTransfer.files[0]; if(f&&f.type==='application/pdf') handlePdfFile(f);
+}
+function handlePdfFile(file){
+  if(!file)return;
+  const status=document.getElementById('pdf-parse-status');
+  status.textContent='PDF okunuyor…'; status.style.display='';
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try {
+      const {results, logs} = await parsePdf(e.target.result);
+      parsedImport=results;
+      if(logs.length){
+        document.getElementById('parse-log').textContent=logs.join('\n');
+        document.getElementById('parse-log-wrap').style.display='';
+      }
+      status.textContent=`${results.length} kayıt bulundu.`;
+      showImportPreview(results);
+    } catch(err){
+      status.textContent='Hata: '+err.message;
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function showImportPreview(items){
+  const wrap=document.getElementById('import-preview-wrap');
+  const pre=document.getElementById('import-preview');
+  const cnt=document.getElementById('import-count');
+  const btn=document.getElementById('import-btn');
+  if(!items.length){
+    cnt.textContent='Uygun kayıt bulunamadı.'; wrap.style.display=''; pre.innerHTML='<div style="padding:16px;color:var(--muted);font-size:12px">PDF formatı tanınamadı.</div>'; return;
+  }
+  cnt.textContent=`${items.length} kayıt bulundu`;
+  pre.innerHTML='';
+  items.forEach((r,i)=>{
+    const baCls=r.ba==='B'?'borc':r.ba==='A'?'alacak':'sifir';
+    const sign=r.ba==='A'?'-':'';
+    const div=document.createElement('div'); div.className='import-preview-row';
+    div.innerHTML=`<input type="checkbox" class="import-chk" data-i="${i}" checked>
+      <span class="ipr-isim">${esc(r.isim)} <span style="color:var(--muted);font-size:11px">${r.kod}</span></span>
+      <span class="ipr-bakiye bakiye-val ${baCls}">${sign}${fmtMoney(r.bakiye,r.para)}</span>`;
+    pre.appendChild(div);
+  });
+  wrap.style.display=''; btn.style.display='';
+}
+function toggleAllImport(v){ document.querySelectorAll('.import-chk').forEach(c=>c.checked=v); }
+function importSelected(){
+  const sel=[...document.querySelectorAll('.import-chk:checked')].map(c=>parseInt(c.dataset.i));
+  const toAdd=sel.map(i=>parsedImport[i]).map(r=>({...r, ts:r.ts||Date.now()}));
+  records=[...toAdd,...records];
+  save(); closePdfModal(); renderTable();
+  fsBatchSet(toAdd).catch(e=>toast('Aktarım hatası: '+e.message,false));
+}
+
+// ── CLOSE BG ────────────────────────────────────────────────────────────
+document.querySelectorAll('.modal-bg').forEach(bg=>bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open');}));
+
+renderTable();
+initFirebase();
+</script>
+</body>
+</html>
